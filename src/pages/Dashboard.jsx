@@ -193,6 +193,13 @@ export default function Dashboard() {
   const [previewFile, setPreviewFile] = useState(null)
   const [showProfile, setShowProfile] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'files'), orderBy('createdAt', 'desc'))
@@ -214,41 +221,70 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={s.page}>
-      <aside style={s.sidebar}>
-        <div style={s.brand}>
-          <span style={s.brandIcon}>⬡</span>
-          <span style={s.brandName}>ClassShare</span>
-        </div>
-        <nav style={s.nav}>
-          <p style={s.navLabel}>Categorie</p>
+    <div style={{...s.page, flexDirection: isMobile ? 'column' : 'row'}}>
+      {/* SIDEBAR desktop / BOTTOM NAV mobile */}
+      {isMobile ? (
+        <nav style={s.bottomNav}>
           {CATEGORIES.map(c => (
-            <button key={c} style={category===c ? s.navItemActive : s.navItem} onClick={() => setCategory(c)}>
-              {c==='Tutti' ? 'Tutti i file' : c}
-              {c!=='Tutti' && <span style={s.count}>{files.filter(f=>f.category===c).length}</span>}
+            <button key={c} style={category===c ? s.bottomNavActive : s.bottomNavItem}
+              onClick={() => setCategory(c)}>
+              <span style={{fontSize:'18px'}}>
+                {c==='Tutti'?'📁':c==='Codice'?'💻':c==='Documenti'?'📄':c==='Immagini'?'🖼':'📦'}
+              </span>
+              <span style={{fontSize:'10px'}}>{c==='Tutti'?'Tutti':c}</span>
             </button>
           ))}
+          <button style={s.bottomNavItem} onClick={() => setShowUpload(true)}>
+            <span style={{fontSize:'18px'}}>➕</span>
+            <span style={{fontSize:'10px'}}>Carica</span>
+          </button>
+          <button style={s.bottomNavItem} onClick={() => setShowProfile(true)}>
+            <div style={{...s.avatar, background: avatarColor(profile?.name), width:'24px', height:'24px', fontSize:'10px'}}>
+              {initials(profile?.name || user?.email)}
+            </div>
+            <span style={{fontSize:'10px'}}>Profilo</span>
+          </button>
         </nav>
-        <button style={s.adminBtn} onClick={() => setShowAdmin(true)}>⚙️ Admin</button>
-        <div style={s.profileBar} onClick={() => setShowProfile(true)}>
-          <div style={{...s.avatar, background: avatarColor(profile?.name)}}>
-            {initials(profile?.name || user?.email)}
+      ) : (
+        <aside style={s.sidebar}>
+          <div style={s.brand}>
+            <span style={s.brandIcon}>⬡</span>
+            <span style={s.brandName}>ClassShare</span>
           </div>
-          <div style={{flex:1,minWidth:0}}>
-            <p style={s.profileName}>{profile?.name || 'Utente'}</p>
-            <p style={s.profileSub}>{profile?.fileCount || 0} file caricati</p>
+          <nav style={s.nav}>
+            <p style={s.navLabel}>Categorie</p>
+            {CATEGORIES.map(c => (
+              <button key={c} style={category===c ? s.navItemActive : s.navItem} onClick={() => setCategory(c)}>
+                {c==='Tutti' ? 'Tutti i file' : c}
+                {c!=='Tutti' && <span style={s.count}>{files.filter(f=>f.category===c).length}</span>}
+              </button>
+            ))}
+          </nav>
+          <button style={s.adminBtn} onClick={() => setShowAdmin(true)}>⚙️ Admin</button>
+          <div style={s.profileBar} onClick={() => setShowProfile(true)}>
+            <div style={{...s.avatar, background: avatarColor(profile?.name)}}>
+              {initials(profile?.name || user?.email)}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={s.profileName}>{profile?.name || 'Utente'}</p>
+              <p style={s.profileSub}>{profile?.fileCount || 0} file caricati</p>
+            </div>
+            <button style={s.logoutBtn} onClick={e => { e.stopPropagation(); signOut(auth) }} title="Esci">↩</button>
           </div>
-          <button style={s.logoutBtn} onClick={e => { e.stopPropagation(); signOut(auth) }} title="Esci">↩</button>
-        </div>
-      </aside>
+        </aside>
+      )}
 
-      <main style={s.main}>
+      <main style={{...s.main, paddingBottom: isMobile ? '80px' : '2rem'}}>
         <div style={s.topBar}>
           <div>
-            <h1 style={s.heading}>{category==='Tutti' ? 'Tutti i file' : category}</h1>
+            <h1 style={{...s.heading, fontSize: isMobile ? '18px' : '22px'}}>
+              {category==='Tutti' ? 'Tutti i file' : category}
+            </h1>
             <p style={s.subheading}>{filtered.length} file trovati</p>
           </div>
-          <button style={s.uploadBtn} onClick={() => setShowUpload(true)}>+ Carica file</button>
+          {!isMobile && (
+            <button style={s.uploadBtn} onClick={() => setShowUpload(true)}>+ Carica file</button>
+          )}
         </div>
 
         <input style={s.search} placeholder="Cerca per nome, tag, autore..."
@@ -316,6 +352,9 @@ export default function Dashboard() {
 }
 
 const s = {
+  bottomNav: { position:'fixed', bottom:0, left:0, right:0, background:'#17171a', borderTop:'1px solid #1e1e23', display:'flex', alignItems:'stretch', zIndex:50, height:'60px' },
+  bottomNavItem: { flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', border:'none', background:'transparent', color:'#6b6b75', cursor:'pointer', fontFamily:'DM Sans,sans-serif', padding:'6px 2px' },
+  bottomNavActive: { flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', border:'none', background:'rgba(124,109,250,0.1)', color:'#a99bfc', cursor:'pointer', fontFamily:'DM Sans,sans-serif', padding:'6px 2px', borderTop:'2px solid #7c6dfa' },
   page: { display:'flex', minHeight:'100vh', background:'#0e0e10' },
   sidebar: { width:'220px', flexShrink:0, background:'#17171a', borderRight:'1px solid #1e1e23', display:'flex', flexDirection:'column', padding:'1.5rem 1rem' },
   brand: { display:'flex', alignItems:'center', gap:'10px', marginBottom:'2rem' },
