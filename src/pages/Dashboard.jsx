@@ -145,8 +145,15 @@ function EditModal({ file, onClose, onSave }) {
             <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
               {EDIT_CATEGORIES.map(c => (
                 <button key={c}
-                  style={category===c ? s.catActive : s.cat}
-                  onClick={() => setCategory(c)}>{c}</button>
+                  onClick={() => setCategory(c)}
+                  style={{
+                    padding:'7px 16px', borderRadius:'20px', cursor:'pointer',
+                    fontFamily:'DM Sans,sans-serif', fontSize:'13px',
+                    border: category===c ? '1px solid #7c6dfa' : '1px solid #2a2a2f',
+                    background: category===c ? 'rgba(124,109,250,0.2)' : 'transparent',
+                    color: category===c ? '#a99bfc' : '#6b6b75',
+                    fontWeight: category===c ? '500' : '400',
+                  }}>{c}</button>
               ))}
             </div>
           </div>
