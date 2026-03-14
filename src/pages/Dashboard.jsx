@@ -5,6 +5,7 @@ import { signOut, updatePassword } from 'firebase/auth'
 import { db, auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import UploadModal from '../components/UploadModal'
+import AdminPanel from './AdminPanel'
 
 const CATEGORIES = ['Tutti', 'Codice', 'Documenti', 'Immagini', 'Altro']
 const CODE_EXTS = ['js','jsx','ts','tsx','html','css','php','py','java','c','cpp','json','md','txt','xml','yaml','yml','sh','sql','vue','svelte','rs','go']
@@ -191,6 +192,7 @@ export default function Dashboard() {
   const [showUpload, setShowUpload] = useState(false)
   const [previewFile, setPreviewFile] = useState(null)
   const [showProfile, setShowProfile] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
 
   useEffect(() => {
     const q = query(collection(db, 'files'), orderBy('createdAt', 'desc'))
@@ -227,6 +229,7 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
+        <button style={s.adminBtn} onClick={() => setShowAdmin(true)}>⚙️ Admin</button>
         <div style={s.profileBar} onClick={() => setShowProfile(true)}>
           <div style={{...s.avatar, background: avatarColor(profile?.name)}}>
             {initials(profile?.name || user?.email)}
@@ -307,6 +310,7 @@ export default function Dashboard() {
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onSuccess={() => {}} />}
       {previewFile && <CodePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
       {showProfile && <ProfileModal user={user} profile={profile} files={files} onClose={() => setShowProfile(false)} />}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
     </div>
   )
 }
@@ -322,6 +326,7 @@ const s = {
   navItem: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderRadius:'8px', border:'none', background:'transparent', color:'#6b6b75', fontSize:'13px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', textAlign:'left', width:'100%' },
   navItemActive: { display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderRadius:'8px', border:'none', background:'rgba(124,109,250,0.12)', color:'#a99bfc', fontSize:'13px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', textAlign:'left', width:'100%', fontWeight:'500' },
   count: { fontSize:'11px', background:'#2a2a2f', color:'#6b6b75', padding:'1px 7px', borderRadius:'20px' },
+  adminBtn: { display:'flex', alignItems:'center', gap:'8px', padding:'8px 10px', borderRadius:'8px', border:'1px solid #2a2a2f', background:'transparent', color:'#6b6b75', fontSize:'13px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', width:'100%', marginBottom:'8px' },
   profileBar: { display:'flex', alignItems:'center', gap:'10px', borderTop:'1px solid #1e1e23', paddingTop:'1rem', marginTop:'auto', cursor:'pointer', borderRadius:'8px', padding:'10px' },
   avatar: { width:'32px', height:'32px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'500', color:'#fff', flexShrink:0 },
   bigAvatar: { width:'56px', height:'56px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', fontWeight:'500', color:'#fff', flexShrink:0 },
