@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { supabase, STORAGE_BUCKET } from '../supabase'
 import { signOut, updatePassword } from 'firebase/auth'
 import { db, auth } from '../firebase'
@@ -112,6 +112,65 @@ function PreviewModal({ file, onClose }) {
   )
 }
 
+const EDIT_CATEGORIES = ['Codice', 'Documenti', 'Immagini', 'Altro']
+
+function EditModal({ file, onClose, onSave }) {
+  const [category, setCategory] = useState(file.category || 'Codice')
+  const [tags, setTags] = useState((file.tags || []).join(', '))
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
+    await updateDoc(doc(db, 'files', file.id), { category, tags: tagList })
+    setSaving(false)
+    onSave({ ...file, category, tags: tagList })
+    onClose()
+  }
+
+  return (
+    <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{...s.baseModal, maxWidth:'420px'}}>
+        <div style={s.previewHeader}>
+          <div>
+            <p style={s.previewTitle}>Modifica file</p>
+            <p style={s.previewMeta}>{file.name}</p>
+          </div>
+          <button style={s.close} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{display:'flex',flexDirection:'column',gap:'16px',marginTop:'8px'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+            <label style={{fontSize:'13px',color:'#9b9ba8',fontWeight:'500'}}>Categoria</label>
+            <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+              {EDIT_CATEGORIES.map(c => (
+                <button key={c}
+                  style={category===c ? s.catActive : s.cat}
+                  onClick={() => setCategory(c)}>{c}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+            <label style={{fontSize:'13px',color:'#9b9ba8',fontWeight:'500'}}>
+              Tag <span style={{color:'#4a4a55',fontWeight:'400'}}>(separati da virgola)</span>
+            </label>
+            <input style={s.inputDark} placeholder="es. react, homework, settimana3"
+              value={tags} onChange={e => setTags(e.target.value)} />
+          </div>
+
+          <div style={{display:'flex',gap:'10px',justifyContent:'flex-end'}}>
+            <button style={s.btnOutline} onClick={onClose}>Annulla</button>
+            <button style={saving ? s.btnDisabled : s.btn} onClick={handleSave} disabled={saving}>
+              {saving ? 'Salvataggio...' : 'Salva modifiche'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ProfileModal({ user, profile, files, onClose }) {
   const myFiles = files.filter(f => f.uploadedBy === user.uid)
   const [showPwd, setShowPwd] = useState(false)
@@ -214,6 +273,7 @@ export default function Dashboard() {
   const [previewFile, setPreviewFile] = useState(null)
   const [showProfile, setShowProfile] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [editFile, setEditFile] = useState(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
 
   useEffect(() => {
@@ -360,6 +420,7 @@ export default function Dashboard() {
                       )}
                       <button style={s.actionBtn} onClick={() => forceDownload(file)} title="Scarica">↓</button>
                       {isOwn && <button style={s.deleteBtn} onClick={() => handleDelete(file)}>✕</button>}
+                      {isOwn && <button style={s.editBtn} onClick={() => setEditFile(file)} title="Modifica tag e categoria">✎</button>}
                     </div>
                   </div>
                 </div>
@@ -373,6 +434,7 @@ export default function Dashboard() {
       {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
       {showProfile && <ProfileModal user={user} profile={profile} files={files} onClose={() => setShowProfile(false)} />}
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+      {editFile && <EditModal file={editFile} onClose={() => setEditFile(null)} onSave={updated => setFiles(fs => fs.map(f => f.id===updated.id ? updated : f))} />}
     </div>
   )
 }
@@ -424,6 +486,7 @@ const s = {
   previewBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(56,189,248,0.1)', color:'#7dd3fc', fontSize:'10px', border:'1px solid rgba(56,189,248,0.2)', cursor:'pointer', fontFamily:'DM Mono,monospace', fontWeight:'500' },
   previewImgBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(52,211,153,0.1)', color:'#6ee7b7', fontSize:'14px', border:'1px solid rgba(52,211,153,0.2)', cursor:'pointer' },
   previewPdfBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(56,189,248,0.1)', color:'#7dd3fc', fontSize:'14px', border:'1px solid rgba(56,189,248,0.2)', cursor:'pointer' },
+  editBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(251,146,60,0.1)', color:'#fb923c', border:'1px solid rgba(251,146,60,0.2)', cursor:'pointer', fontSize:'14px', fontFamily:'DM Sans,sans-serif' },
   deleteBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(248,113,113,0.1)', color:'#f87171', border:'1px solid rgba(248,113,113,0.2)', cursor:'pointer', fontSize:'12px', fontFamily:'DM Sans,sans-serif' },
   overlay: { position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, padding:'1rem' },
   baseModal: { background:'#17171a', border:'1px solid #2a2a2f', borderRadius:'16px', padding:'1.75rem', width:'100%', display:'flex', flexDirection:'column', gap:'4px' },
