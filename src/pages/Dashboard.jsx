@@ -9,6 +9,7 @@ import AdminPanel from './AdminPanel'
 
 const CATEGORIES = ['Tutti', 'Codice', 'Documenti', 'Immagini', 'Altro']
 const CODE_EXTS = ['js','jsx','ts','tsx','html','css','php','py','java','c','cpp','json','md','txt','xml','yaml','yml','sh','sql','vue','svelte','rs','go']
+const IMAGE_EXTS = ['png','jpg','jpeg','gif','svg','webp']
 const CAT_COLORS = {
   Codice:    { bg: 'rgba(124,109,250,0.12)', text: '#a99bfc', border: 'rgba(124,109,250,0.25)' },
   Documenti: { bg: 'rgba(56,189,248,0.12)',  text: '#7dd3fc', border: 'rgba(56,189,248,0.25)' },
@@ -56,20 +57,28 @@ async function forceDownload(file) {
   URL.revokeObjectURL(a.href)
 }
 
-function CodePreviewModal({ file, onClose }) {
+function PreviewModal({ file, onClose }) {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(true)
+  const ext = getExt(file.name)
+  const isImage = IMAGE_EXTS.includes(ext)
+  const isPdf = ext === 'pdf'
+  const isCode = CODE_EXTS.includes(ext)
 
   useEffect(() => {
-    fetch(file.url)
-      .then(r => r.text())
-      .then(t => { setCode(t); setLoading(false) })
-      .catch(() => { setCode('Impossibile caricare il file.'); setLoading(false) })
-  }, [file.url])
+    if (isCode) {
+      fetch(file.url)
+        .then(r => r.text())
+        .then(t => { setCode(t); setLoading(false) })
+        .catch(() => { setCode('Impossibile caricare il file.'); setLoading(false) })
+    } else {
+      setLoading(false)
+    }
+  }, [file.url, isCode])
 
   return (
     <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={s.previewModal}>
+      <div style={{...s.previewModal, maxWidth: isImage ? '600px' : '800px'}}>
         <div style={s.previewHeader}>
           <div>
             <p style={s.previewTitle}>{file.name}</p>
@@ -80,11 +89,23 @@ function CodePreviewModal({ file, onClose }) {
             <button style={s.close} onClick={onClose}>✕</button>
           </div>
         </div>
-        <div style={s.previewBody}>
-          {loading
-            ? <p style={{color:'#6b6b75',fontSize:'14px'}}>Caricamento...</p>
-            : <pre style={s.pre}><code>{code}</code></pre>
-          }
+        <div style={{...s.previewBody, display:'flex', alignItems: isImage ? 'center' : 'flex-start', justifyContent: isImage ? 'center' : 'flex-start'}}>
+          {loading ? (
+            <p style={{color:'#6b6b75',fontSize:'14px'}}>Caricamento...</p>
+          ) : isImage ? (
+            <img src={file.url} alt={file.name}
+              style={{maxWidth:'100%', maxHeight:'70vh', borderRadius:'8px', objectFit:'contain'}} />
+          ) : isPdf ? (
+            <iframe src={file.url} style={{width:'100%', height:'65vh', border:'none', borderRadius:'8px'}} title={file.name} />
+          ) : isCode ? (
+            <pre style={s.pre}><code>{code}</code></pre>
+          ) : (
+            <div style={{textAlign:'center', padding:'2rem'}}>
+              <p style={{fontSize:'48px', marginBottom:'16px'}}>📄</p>
+              <p style={{color:'#9b9ba8', fontSize:'14px', marginBottom:'8px'}}>Anteprima non disponibile per questo tipo di file.</p>
+              <button style={s.btnDownload} onClick={() => forceDownload(file)}>↓ Scarica il file</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -304,6 +325,9 @@ export default function Dashboard() {
               const cat = CAT_COLORS[file.category] || CAT_COLORS['Altro']
               const isOwn = file.uploadedBy === user.uid
               const isCode = CODE_EXTS.includes(ext)
+              const isImage = IMAGE_EXTS.includes(ext)
+              const isPdf = ext === 'pdf'
+              const hasPreview = isCode || isImage || isPdf
               return (
                 <div key={file.id} style={s.card}>
                   <div style={s.cardTop}>
@@ -327,9 +351,11 @@ export default function Dashboard() {
                       <span style={s.uploaderName}>{file.uploaderName}</span>
                     </div>
                     <div style={{display:'flex',gap:'8px'}}>
-                      {isCode && (
-                        <button style={s.previewBtn} onClick={() => setPreviewFile(file)} title="Anteprima codice">
-                          {'</>'}
+                      {hasPreview && (
+                        <button style={isImage ? s.previewImgBtn : isPdf ? s.previewPdfBtn : s.previewBtn}
+                          onClick={() => setPreviewFile(file)}
+                          title={isImage ? 'Anteprima immagine' : isPdf ? 'Anteprima PDF' : 'Anteprima codice'}>
+                          {isImage ? '🖼' : isPdf ? '📄' : '</>'}
                         </button>
                       )}
                       <button style={s.actionBtn} onClick={() => forceDownload(file)} title="Scarica">↓</button>
@@ -344,7 +370,7 @@ export default function Dashboard() {
       </main>
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onSuccess={() => {}} />}
-      {previewFile && <CodePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
+      {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
       {showProfile && <ProfileModal user={user} profile={profile} files={files} onClose={() => setShowProfile(false)} />}
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
     </div>
@@ -396,6 +422,8 @@ const s = {
   uploaderName: { fontSize:'12px', color:'#6b6b75' },
   actionBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(124,109,250,0.12)', color:'#a99bfc', fontSize:'16px', border:'1px solid rgba(124,109,250,0.2)', cursor:'pointer', fontFamily:'DM Sans,sans-serif' },
   previewBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(56,189,248,0.1)', color:'#7dd3fc', fontSize:'10px', border:'1px solid rgba(56,189,248,0.2)', cursor:'pointer', fontFamily:'DM Mono,monospace', fontWeight:'500' },
+  previewImgBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(52,211,153,0.1)', color:'#6ee7b7', fontSize:'14px', border:'1px solid rgba(52,211,153,0.2)', cursor:'pointer' },
+  previewPdfBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(56,189,248,0.1)', color:'#7dd3fc', fontSize:'14px', border:'1px solid rgba(56,189,248,0.2)', cursor:'pointer' },
   deleteBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px', borderRadius:'6px', background:'rgba(248,113,113,0.1)', color:'#f87171', border:'1px solid rgba(248,113,113,0.2)', cursor:'pointer', fontSize:'12px', fontFamily:'DM Sans,sans-serif' },
   overlay: { position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, padding:'1rem' },
   baseModal: { background:'#17171a', border:'1px solid #2a2a2f', borderRadius:'16px', padding:'1.75rem', width:'100%', display:'flex', flexDirection:'column', gap:'4px' },
