@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, increment } from 'firebase/firestore'
 import { supabase, STORAGE_BUCKET } from '../supabase'
 import { signOut, updatePassword } from 'firebase/auth'
 import { db, auth } from '../firebase'
@@ -8,6 +8,7 @@ import UploadModal from '../components/UploadModal'
 import AdminPanel from './AdminPanel'
 
 const CATEGORIES = ['Tutti', 'Codice', 'Documenti', 'Immagini', 'Altro']
+const NAV_ITEMS = ['Tutti', 'Progetti', 'Codice', 'Documenti', 'Immagini', 'Altro']
 const CODE_EXTS = ['js','jsx','ts','tsx','html','css','php','py','java','c','cpp','json','md','txt','xml','yaml','yml','sh','sql','vue','svelte','rs','go']
 const IMAGE_EXTS = ['png','jpg','jpeg','gif','svg','webp']
 const CAT_COLORS = {
@@ -274,6 +275,9 @@ function ProfileModal({ user, profile, files, onClose }) {
 export default function Dashboard() {
   const { user, profile } = useAuth()
   const [files, setFiles] = useState([])
+  const [projects, setProjects] = useState([])
+  const [expandedProject, setExpandedProject] = useState(null)
+  const [addToProject, setAddToProject] = useState(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Tutti')
   const [showUpload, setShowUpload] = useState(false)
@@ -294,18 +298,44 @@ export default function Dashboard() {
     return onSnapshot(q, snap => setFiles(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
   }, [])
 
-  const filtered = files.filter(f => {
-    const matchCat = category === 'Tutti' || f.category === category
+  useEffect(() => {
+    const q = query(collection(db, 'projects'), orderBy('createdAt', 'desc'))
+    return onSnapshot(q, snap => setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+  }, [])
+
+  const projectFiles = (projectId) => files.filter(f => f.projectId === projectId)
+  const standaloneFiles = files.filter(f => !f.projectId)
+
+  const filtered = standaloneFiles.filter(f => {
+    const matchCat = category === 'Tutti' || category === 'Progetti' || f.category === category
     const matchSearch = f.name.toLowerCase().includes(search.toLowerCase()) ||
       (f.tags||[]).some(t => t.toLowerCase().includes(search.toLowerCase())) ||
       f.uploaderName?.toLowerCase().includes(search.toLowerCase())
     return matchCat && matchSearch
   })
 
+  const filteredProjects = projects.filter(p => {
+    if (category !== 'Tutti' && category !== 'Progetti') return false
+    return p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.creatorName?.toLowerCase().includes(search.toLowerCase())
+  })
+
   const handleDelete = async (file) => {
     if (!confirm(`Eliminare "${file.name}"?`)) return
     try { if (file.storagePath) await supabase.storage.from(STORAGE_BUCKET).remove([file.storagePath]) } catch {}
+    if (file.projectId) {
+      await updateDoc(doc(db, 'projects', file.projectId), { fileCount: increment(-1) })
+    }
     await deleteDoc(doc(db, 'files', file.id))
+  }
+
+  const handleDeleteProject = async (project) => {
+    if (!confirm(`Eliminare il progetto "${project.name}" e tutti i suoi file?`)) return
+    const pFiles = projectFiles(project.id)
+    const paths = pFiles.filter(f => f.storagePath).map(f => f.storagePath)
+    if (paths.length) await supabase.storage.from(STORAGE_BUCKET).remove(paths)
+    for (const f of pFiles) await deleteDoc(doc(db, 'files', f.id))
+    await deleteDoc(doc(db, 'projects', project.id))
   }
 
   return (
@@ -341,10 +371,11 @@ export default function Dashboard() {
           </div>
           <nav style={s.nav}>
             <p style={s.navLabel}>Categorie</p>
-            {CATEGORIES.map(c => (
+            {NAV_ITEMS.map(c => (
               <button key={c} style={category===c ? s.navItemActive : s.navItem} onClick={() => setCategory(c)}>
                 {c==='Tutti' ? 'Tutti i file' : c}
-                {c!=='Tutti' && <span style={s.count}>{files.filter(f=>f.category===c).length}</span>}
+                {c==='Progetti' && <span style={s.count}>{projects.length}</span>}
+                {c!=='Tutti' && c!=='Progetti' && <span style={s.count}>{files.filter(f=>f.category===c&&!f.projectId).length}</span>}
               </button>
             ))}
           </nav>
@@ -368,7 +399,9 @@ export default function Dashboard() {
             <h1 style={{...s.heading, fontSize: isMobile ? '18px' : '22px'}}>
               {category==='Tutti' ? 'Tutti i file' : category}
             </h1>
-            <p style={s.subheading}>{filtered.length} file trovati</p>
+            <p style={s.subheading}>
+              {category==='Progetti' ? `${filteredProjects.length} progetti` : `${filteredProjects.length + filtered.length} elementi`}
+            </p>
           </div>
           {!isMobile && (
             <button style={s.uploadBtn} onClick={() => setShowUpload(true)}>+ Carica file</button>
@@ -378,13 +411,85 @@ export default function Dashboard() {
         <input style={s.search} placeholder="Cerca per nome, tag, autore..."
           value={search} onChange={e => setSearch(e.target.value)} />
 
-        {filtered.length === 0 ? (
-          <div style={s.empty}>
-            <p style={s.emptyIcon}>◻</p>
-            <p style={s.emptyText}>Nessun file trovato.</p>
-            <p style={s.emptySub}>Prova a cambiare categoria o carica il primo file!</p>
+        {/* PROGETTI */}
+        {filteredProjects.length > 0 && (
+          <div style={{marginBottom:'24px'}}>
+            {category==='Tutti' && <p style={s.sectionLabel}>Progetti</p>}
+            <div style={s.grid}>
+              {filteredProjects.map(project => {
+                const pFiles = projectFiles(project.id)
+                const isExpanded = expandedProject === project.id
+                const isOwn = project.createdBy === user.uid
+                return (
+                  <div key={project.id} style={s.projectCard}>
+                    <div style={s.projectHeader} onClick={() => setExpandedProject(isExpanded ? null : project.id)}>
+                      <div style={{display:'flex',alignItems:'center',gap:'10px',flex:1,minWidth:0}}>
+                        <span style={{fontSize:'20px'}}>📁</span>
+                        <div style={{minWidth:0}}>
+                          <p style={s.projectName}>{project.name}</p>
+                          {project.description && <p style={s.projectDesc}>{project.description}</p>}
+                          <p style={s.fileMeta}>{pFiles.length} file · {project.creatorName}</p>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                        {isOwn && (
+                          <button style={s.addToProjectBtn} onClick={e => { e.stopPropagation(); setAddToProject(project.id) }} title="Aggiungi file">+</button>
+                        )}
+                        {isOwn && (
+                          <button style={s.deleteBtn} onClick={e => { e.stopPropagation(); handleDeleteProject(project) }}>✕</button>
+                        )}
+                        <span style={{color:'#4a4a55',fontSize:'14px'}}>{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div style={s.projectFiles}>
+                        {pFiles.length === 0
+                          ? <p style={{fontSize:'13px',color:'#6b6b75',padding:'8px 0'}}>Nessun file nel progetto.</p>
+                          : pFiles.map(file => {
+                            const ext = getExt(file.name)
+                            const label = EXT_LABELS[ext] || ext.toUpperCase().slice(0,4)
+                            const isCode = CODE_EXTS.includes(ext)
+                            const isImage = IMAGE_EXTS.includes(ext)
+                            const isPdf = ext === 'pdf'
+                            const hasPreview = isCode || isImage || isPdf
+                            const isFileOwn = file.uploadedBy === user.uid
+                            return (
+                              <div key={file.id} style={s.projectFileRow}>
+                                <div style={s.extBadgeSmall}>{label}</div>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <p style={{fontSize:'13px',color:'#e8e6e0',fontWeight:'500',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{file.name}</p>
+                                  <p style={{fontSize:'11px',color:'#4a4a55'}}>{fmtSize(file.size)} · {fmtDate(file.createdAt)}</p>
+                                </div>
+                                <div style={{display:'flex',gap:'6px'}}>
+                                  {hasPreview && <button style={isImage ? s.previewImgBtn : isPdf ? s.previewPdfBtn : s.previewBtn} onClick={() => setPreviewFile(file)}>{isImage?'🖼':isPdf?'📄':'</>'}</button>}
+                                  <button style={s.actionBtn} onClick={() => forceDownload(file)}>↓</button>
+                                  {isFileOwn && <button style={s.deleteBtn} onClick={() => handleDelete(file)}>✕</button>}
+                                </div>
+                              </div>
+                            )
+                          })
+                        }
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        ) : (
+        )}
+
+        {/* FILE SINGOLI */}
+        {category !== 'Progetti' && (
+          <div>
+            {category==='Tutti' && filtered.length > 0 && <p style={s.sectionLabel}>File singoli</p>}
+            {filtered.length === 0 && filteredProjects.length === 0 ? (
+              <div style={s.empty}>
+                <p style={s.emptyIcon}>◻</p>
+                <p style={s.emptyText}>Nessun elemento trovato.</p>
+                <p style={s.emptySub}>Prova a cambiare categoria o carica il primo file!</p>
+              </div>
+            ) : filtered.length === 0 ? null : (
           <div style={s.grid}>
             {filtered.map(file => {
               const ext = getExt(file.name)
@@ -434,10 +539,13 @@ export default function Dashboard() {
               )
             })}
           </div>
+            )}
+          </div>
         )}
       </main>
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} onSuccess={() => {}} />}
+      {addToProject && <UploadModal defaultProjectId={addToProject} onClose={() => setAddToProject(null)} onSuccess={() => {}} />}
       {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
       {showProfile && <ProfileModal user={user} profile={profile} files={files} onClose={() => setShowProfile(false)} />}
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
@@ -477,6 +585,15 @@ const s = {
   emptyIcon: { fontSize:'40px', marginBottom:'12px', color:'#2a2a2f' },
   emptyText: { fontSize:'16px', color:'#6b6b75', fontWeight:'500' },
   emptySub: { fontSize:'13px', color:'#4a4a55', marginTop:'6px' },
+  sectionLabel: { fontSize:'11px', color:'#4a4a55', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:'12px', marginTop:'4px' },
+  projectCard: { background:'#17171a', border:'1px solid rgba(124,109,250,0.2)', borderRadius:'12px', overflow:'hidden' },
+  projectHeader: { display:'flex', alignItems:'center', gap:'12px', padding:'14px', cursor:'pointer' },
+  projectName: { fontSize:'14px', fontWeight:'600', color:'#e8e6e0' },
+  projectDesc: { fontSize:'12px', color:'#6b6b75', marginTop:'2px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+  projectFiles: { borderTop:'1px solid #1e1e23', padding:'8px 14px', display:'flex', flexDirection:'column', gap:'6px' },
+  projectFileRow: { display:'flex', alignItems:'center', gap:'10px', padding:'7px 8px', background:'#0e0e10', borderRadius:'8px' },
+  extBadgeSmall: { background:'#1e1e23', color:'#6b6b75', borderRadius:'4px', padding:'3px 6px', fontSize:'10px', fontWeight:'500', fontFamily:'DM Mono,monospace', flexShrink:0 },
+  addToProjectBtn: { display:'flex', alignItems:'center', justifyContent:'center', width:'28px', height:'28px', borderRadius:'6px', background:'rgba(124,109,250,0.12)', color:'#a99bfc', fontSize:'18px', border:'1px solid rgba(124,109,250,0.2)', cursor:'pointer', fontFamily:'DM Sans,sans-serif', lineHeight:1 },
   grid: { display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:'14px' },
   card: { background:'#17171a', border:'1px solid #1e1e23', borderRadius:'12px', padding:'1rem', display:'flex', flexDirection:'column', gap:'12px' },
   cardTop: { display:'flex', gap:'12px', alignItems:'flex-start' },
