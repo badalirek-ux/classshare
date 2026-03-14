@@ -5,7 +5,29 @@ import {
   updateProfile
 } from 'firebase/auth'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db, ALLOWED_DOMAIN } from '../firebase'
+import { auth, db } from '../firebase'
+
+const ALLOWED_EMAILS = [
+  'abonafede@stevejobs.academy',
+  'cbonafede@stevejobs.academy',
+  'nbadali@stevejobs.academy',
+  'abulone@stevejobs.academy',
+  'mcapitti@stevejobs.academy',
+  'ecimo@stevejobs.academy',
+  'sdifranco@stevejobs.academy',
+  'afiumefreddo@stevejobs.academy',
+  'mintravaia@stevejobs.academy',
+  'dlefosse@stevejobs.academy',
+  'dloiacono@stevejobs.academy',
+  'mmanfre@stevejobs.academy',
+  'mmercadante@stevejobs.academy',
+  'fmicalizzi@stevejobs.academy',
+  'gscrivano@stevejobs.academy',
+  'aserra@stevejobs.academy',
+  'csparacio@stevejobs.academy',
+  'mtiscione@stevejobs.academy',
+  'ttitone@stevejobs.academy',
+]
 
 export default function AuthPage() {
   const [mode, setMode] = useState('login')
@@ -19,8 +41,8 @@ export default function AuthPage() {
     e.preventDefault()
     setError('')
 
-    if (!form.email.endsWith(ALLOWED_DOMAIN)) {
-      setError(`Solo email con dominio ${ALLOWED_DOMAIN} sono ammesse.`)
+    if (!ALLOWED_EMAILS.includes(form.email.toLowerCase())) {
+      setError('Questa email non è autorizzata. Contatta il tuo insegnante.')
       return
     }
 
@@ -62,7 +84,7 @@ export default function AuthPage() {
           <span style={s.logoText}>ClassShare</span>
         </div>
         <p style={s.sub}>
-          {mode === 'login' ? 'Bentornato nella tua classe del corso 42 ITS.' : 'Unisciti alla tua classe del corso 42 ITS.'}
+          {mode === 'login' ? 'Bentornato nella tua classe.' : 'Unisciti alla tua classe.'}
         </p>
 
         <div style={s.tabs}>
@@ -80,7 +102,7 @@ export default function AuthPage() {
           )}
           <div style={s.field}>
             <label style={s.label}>Email scolastica</label>
-            <input style={s.input} type="email" placeholder={`nome${ALLOWED_DOMAIN}`}
+            <input style={s.input} type="email" placeholder="tuanome@stevejobs.academy"
               value={form.email} onChange={e => set('email', e.target.value)} required />
           </div>
           <div style={s.field}>
@@ -96,7 +118,7 @@ export default function AuthPage() {
           </button>
         </form>
 
-        <p style={s.hint}>Solo email <code style={s.code}>{ALLOWED_DOMAIN}</code> sono ammesse.</p>
+        <p style={s.hint}>Solo le email autorizzate dalla classe possono registrarsi.</p>
       </div>
     </div>
   )
