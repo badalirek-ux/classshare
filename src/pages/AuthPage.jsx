@@ -62,7 +62,7 @@ export default function AuthPage() {
           <span style={s.logoText}>ClassShare</span>
         </div>
         <p style={s.sub}>
-          {mode === 'login' ? 'Bentornato nella tua classe.' : 'Unisciti alla tua classe.'}
+          {mode === 'login' ? 'Bentornato nella tua classe del corso 42 ITS.' : 'Unisciti alla tua classe del corso 42 ITS.'}
         </p>
 
         <div style={s.tabs}>

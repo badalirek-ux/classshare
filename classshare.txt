@@ -1,0 +1,23 @@
+
+
+
+API
+anon public
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvaXVrYmZ1cHdrYmt6dnhwcGFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzEyMDEsImV4cCI6MjA4OTAwNzIwMX0.d46YyZ9aWip213jAPi8ksHr_vmFuwjsGsO4pfEzPCWA
+
+
+
+const SUPABASE_URL = 'https://xxxx.supabase.co'  // ← da General
+const SUPABASE_ANON_KEY = 'eyJhbG...'             // ← la chiave anon public che vedi qui
+
+pass admin classShare
+classAdmin@SteveJobs2025
+
+Cambia la password admin come vuoi direttamente nel file AdminPanel.jsx alla riga const ADMIN_PASSWORD = '...'
+
+
+cd /c/Users/laura/Documents/classshare
+git add .
+git commit -m "descrizione modifica"
+git push
