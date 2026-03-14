@@ -502,18 +502,22 @@ export default function Dashboard() {
               const hasPreview = isCode || isImage || isPdf
               return (
                 <div key={file.id} style={s.card}>
+                  {/* Tags in cima — cliccabili per filtrare */}
+                  <div style={s.cardMid}>
+                    <span style={{...s.catBadge, background:cat.bg, color:cat.text, border:`1px solid ${cat.border}`}}>
+                      {file.category}
+                    </span>
+                    {(file.tags||[]).map(t => (
+                      <span key={t} style={s.tagBadgeClickable} onClick={() => setSearch(t)} title={`Filtra per "${t}"`}>{t}</span>
+                    ))}
+                  </div>
+                  {/* Nome file secondario */}
                   <div style={s.cardTop}>
                     <div style={s.extBadge}>{label}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={s.fileName}>{file.name}</p>
                       <p style={s.fileMeta}>{fmtSize(file.size)} · {fmtDate(file.createdAt)}</p>
                     </div>
-                  </div>
-                  <div style={s.cardMid}>
-                    <span style={{...s.catBadge, background:cat.bg, color:cat.text, border:`1px solid ${cat.border}`}}>
-                      {file.category}
-                    </span>
-                    {(file.tags||[]).map(t => <span key={t} style={s.tagBadge}>{t}</span>)}
                   </div>
                   <div style={s.cardBottom}>
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
@@ -603,6 +607,7 @@ const s = {
   cardMid: { display:'flex', flexWrap:'wrap', gap:'6px' },
   catBadge: { fontSize:'11px', padding:'3px 10px', borderRadius:'20px', fontWeight:'500' },
   tagBadge: { fontSize:'11px', padding:'3px 10px', borderRadius:'20px', background:'#1e1e23', color:'#6b6b75', border:'1px solid #2a2a2f' },
+  tagBadgeClickable: { fontSize:'11px', padding:'3px 10px', borderRadius:'20px', background:'#1e1e23', color:'#9b9ba8', border:'1px solid #2a2a2f', cursor:'pointer', transition:'all 0.15s' },
   cardBottom: { display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid #1e1e23', paddingTop:'10px' },
   miniAvatar: { width:'22px', height:'22px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'9px', fontWeight:'500', color:'#fff' },
   uploaderName: { fontSize:'12px', color:'#6b6b75' },
