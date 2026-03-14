@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { supabase, STORAGE_BUCKET } from '../supabase'
 import { sendPasswordResetEmail } from 'firebase/auth'
@@ -70,6 +70,24 @@ export default function AdminPanel({ onClose }) {
     } catch (err) {
       notify('Errore: ' + err.message, 'err')
     }
+  }
+
+  const deleteUser = async (u) => {
+    if (!confirm(`Eliminare l'account di ${u.name} (${u.email}) e tutti i suoi file? Operazione irreversibile.`)) return
+    setLoading(true)
+    try {
+      const userFiles = files.filter(f => f.uploadedBy === u.id)
+      const paths = userFiles.filter(f => f.storagePath).map(f => f.storagePath)
+      if (paths.length) await supabase.storage.from(STORAGE_BUCKET).remove(paths)
+      for (const f of userFiles) await deleteDoc(doc(db, 'files', f.id))
+      await deleteDoc(doc(db, 'profiles', u.id))
+      setUsers(prev => prev.filter(x => x.id !== u.id))
+      setFiles(prev => prev.filter(f => f.uploadedBy !== u.id))
+      notify(`Account di ${u.name} eliminato. Lo studente può re-registrarsi con una nuova email (dopo che la aggiungi alla whitelist).`)
+    } catch (err) {
+      notify('Errore: ' + err.message, 'err')
+    }
+    setLoading(false)
   }
 
   const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0)
@@ -149,9 +167,14 @@ export default function AdminPanel({ onClose }) {
                     <p style={s.rowName}>{u.name}</p>
                     <p style={s.rowMeta}>{u.email} · {u.fileCount || 0} file caricati</p>
                   </div>
-                  <button style={s.btnSmallOutline} onClick={() => sendReset(u.email)}>
-                    Reset pwd
-                  </button>
+                  <div style={{display:'flex',gap:'6px',flexShrink:0}}>
+                    <button style={s.btnSmallOutline} onClick={() => sendReset(u.email)}>
+                      Reset pwd
+                    </button>
+                    <button style={s.btnSmallDanger} onClick={() => deleteUser(u)} title="Elimina account e file">
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))
             }
