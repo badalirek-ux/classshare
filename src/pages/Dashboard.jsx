@@ -343,24 +343,24 @@ export default function Dashboard() {
       {/* SIDEBAR desktop / BOTTOM NAV mobile */}
       {isMobile ? (
         <nav style={s.bottomNav}>
-          {CATEGORIES.map(c => (
+          {['Tutti','Progetti','Codice','Documenti'].map(c => (
             <button key={c} style={category===c ? s.bottomNavActive : s.bottomNavItem}
               onClick={() => setCategory(c)}>
-              <span style={{fontSize:'18px'}}>
-                {c==='Tutti'?'📁':c==='Codice'?'💻':c==='Documenti'?'📄':c==='Immagini'?'🖼':'📦'}
+              <span style={{fontSize:'16px'}}>
+                {c==='Tutti'?'🏠':c==='Progetti'?'📁':c==='Codice'?'💻':'📄'}
               </span>
-              <span style={{fontSize:'10px'}}>{c==='Tutti'?'Tutti':c}</span>
+              <span style={{fontSize:'9px'}}>{c}</span>
             </button>
           ))}
           <button style={s.bottomNavItem} onClick={() => setShowUpload(true)}>
-            <span style={{fontSize:'18px'}}>➕</span>
-            <span style={{fontSize:'10px'}}>Carica</span>
+            <span style={{fontSize:'16px'}}>➕</span>
+            <span style={{fontSize:'9px'}}>Carica</span>
           </button>
           <button style={s.bottomNavItem} onClick={() => setShowProfile(true)}>
-            <div style={{...s.avatar, background: avatarColor(profile?.name), width:'24px', height:'24px', fontSize:'10px'}}>
+            <div style={{...s.avatar, background: avatarColor(profile?.name), width:'22px', height:'22px', fontSize:'9px'}}>
               {initials(profile?.name || user?.email)}
             </div>
-            <span style={{fontSize:'10px'}}>Profilo</span>
+            <span style={{fontSize:'9px'}}>Profilo</span>
           </button>
         </nav>
       ) : (
