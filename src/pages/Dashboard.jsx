@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 import { supabase, STORAGE_BUCKET } from '../supabase'
-import { signOut } from 'firebase/auth'
+import { signOut, updatePassword } from 'firebase/auth'
 import { db, auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import UploadModal from '../components/UploadModal'
@@ -92,6 +92,33 @@ function CodePreviewModal({ file, onClose }) {
 
 function ProfileModal({ user, profile, files, onClose }) {
   const myFiles = files.filter(f => f.uploadedBy === user.uid)
+  const [showPwd, setShowPwd] = useState(false)
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdMsg, setPwdMsg] = useState('')
+  const [pwdError, setPwdError] = useState('')
+  const [pwdLoading, setPwdLoading] = useState(false)
+
+  const handleChangePwd = async () => {
+    setPwdMsg(''); setPwdError('')
+    if (newPwd.length < 6) { setPwdError('Minimo 6 caratteri.'); return }
+    if (newPwd !== confirmPwd) { setPwdError('Le password non coincidono.'); return }
+    setPwdLoading(true)
+    try {
+      await updatePassword(user, newPwd)
+      setPwdMsg('Password aggiornata!')
+      setNewPwd(''); setConfirmPwd('')
+      setTimeout(() => setShowPwd(false), 1500)
+    } catch (err) {
+      if (err.code === 'auth/requires-recent-login') {
+        setPwdError('Sessione scaduta. Esci e rientra, poi riprova.')
+      } else {
+        setPwdError('Errore: ' + err.message)
+      }
+    }
+    setPwdLoading(false)
+  }
+
   return (
     <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{...s.baseModal, maxWidth:'500px'}}>
@@ -99,21 +126,46 @@ function ProfileModal({ user, profile, files, onClose }) {
           <p style={s.previewTitle}>Il mio profilo</p>
           <button style={s.close} onClick={onClose}>✕</button>
         </div>
+
         <div style={{display:'flex',alignItems:'center',gap:'16px',padding:'1.25rem 0',borderBottom:'1px solid #1e1e23',marginTop:'4px'}}>
           <div style={{...s.bigAvatar, background: avatarColor(profile?.name)}}>
             {initials(profile?.name)}
           </div>
-          <div>
+          <div style={{flex:1}}>
             <p style={{fontSize:'18px',fontWeight:'600',color:'#e8e6e0'}}>{profile?.name}</p>
             <p style={{fontSize:'13px',color:'#6b6b75',marginTop:'3px'}}>{user.email}</p>
             <p style={{fontSize:'13px',color:'#a99bfc',marginTop:'6px'}}>{myFiles.length} file caricati</p>
           </div>
         </div>
+
+        <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
+          <button style={s.btnOutline} onClick={() => { setShowPwd(v => !v); setPwdMsg(''); setPwdError('') }}>
+            {showPwd ? 'Annulla' : '🔑 Cambia password'}
+          </button>
+          <button style={s.btnLogout} onClick={() => { signOut(auth); onClose() }}>
+            ↩ Esci dall'account
+          </button>
+        </div>
+
+        {showPwd && (
+          <div style={{display:'flex',flexDirection:'column',gap:'10px',marginTop:'14px',padding:'14px',background:'#0e0e10',borderRadius:'10px'}}>
+            <input style={s.inputDark} type="password" placeholder="Nuova password (min 6 caratteri)"
+              value={newPwd} onChange={e => setNewPwd(e.target.value)} />
+            <input style={s.inputDark} type="password" placeholder="Conferma nuova password"
+              value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} />
+            {pwdError && <p style={{fontSize:'12px',color:'#f87171',margin:0}}>{pwdError}</p>}
+            {pwdMsg && <p style={{fontSize:'12px',color:'#34d399',margin:0}}>{pwdMsg}</p>}
+            <button style={pwdLoading ? s.btnDisabled : s.btn} onClick={handleChangePwd} disabled={pwdLoading}>
+              {pwdLoading ? 'Salvataggio...' : 'Salva nuova password'}
+            </button>
+          </div>
+        )}
+
         <div style={{marginTop:'16px'}}>
           <p style={{fontSize:'11px',color:'#4a4a55',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'10px'}}>I miei file</p>
           {myFiles.length === 0
             ? <p style={{fontSize:'13px',color:'#6b6b75'}}>Nessun file caricato ancora.</p>
-            : <div style={{display:'flex',flexDirection:'column',gap:'8px',maxHeight:'300px',overflowY:'auto'}}>
+            : <div style={{display:'flex',flexDirection:'column',gap:'8px',maxHeight:'240px',overflowY:'auto'}}>
                 {myFiles.map(f => (
                   <div key={f.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:'#0e0e10',borderRadius:'8px'}}>
                     <div>
@@ -311,4 +363,9 @@ const s = {
   pre: { fontFamily:'DM Mono,monospace', fontSize:'13px', color:'#e8e6e0', lineHeight:'1.6', whiteSpace:'pre-wrap', wordBreak:'break-all', margin:0 },
   btnDownload: { padding:'7px 16px', border:'1px solid rgba(124,109,250,0.3)', borderRadius:'8px', background:'rgba(124,109,250,0.12)', color:'#a99bfc', fontSize:'13px', cursor:'pointer', fontFamily:'DM Sans,sans-serif' },
   close: { background:'none', border:'none', color:'#6b6b75', cursor:'pointer', fontSize:'16px', padding:'4px 8px', borderRadius:'6px' },
+  btnOutline: { flex:1, padding:'9px 14px', border:'1px solid #2a2a2f', borderRadius:'8px', background:'transparent', color:'#9b9ba8', fontSize:'13px', cursor:'pointer', fontFamily:'DM Sans,sans-serif' },
+  btnLogout: { flex:1, padding:'9px 14px', border:'1px solid rgba(248,113,113,0.3)', borderRadius:'8px', background:'rgba(248,113,113,0.08)', color:'#f87171', fontSize:'13px', cursor:'pointer', fontFamily:'DM Sans,sans-serif' },
+  btn: { padding:'10px', border:'none', borderRadius:'8px', background:'#7c6dfa', color:'#fff', fontSize:'13px', fontWeight:'500', cursor:'pointer', fontFamily:'DM Sans,sans-serif' },
+  btnDisabled: { padding:'10px', border:'none', borderRadius:'8px', background:'#3d3860', color:'#9b9ba8', fontSize:'13px', cursor:'not-allowed', fontFamily:'DM Sans,sans-serif' },
+  inputDark: { background:'#17171a', border:'1px solid #2a2a2f', borderRadius:'8px', padding:'9px 12px', color:'#e8e6e0', fontSize:'13px', fontFamily:'DM Sans,sans-serif', outline:'none' },
 }
