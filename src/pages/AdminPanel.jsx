@@ -299,11 +299,28 @@ export default function AdminPanel({ onClose }) {
                           <p style={s.rowName}>📁 {p.name}</p>
                           <p style={s.rowMeta}>{p.creatorName} · {projectFiles.length} file</p>
                         </div>
-                        <button style={s.btnSmallOutline} onClick={() => {
-                          setEditingProject(p.id)
-                          setEditName(p.name)
-                          setEditDesc(p.description || '')
-                        }}>✎ Rinomina</button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button style={s.btnSmallOutline} onClick={() => {
+                            setEditingProject(p.id)
+                            setEditName(p.name)
+                            setEditDesc(p.description || '')
+                          }}>✎ Rinomina</button>
+                          <button style={s.btnSmallDanger} title="Elimina progetto e tutti i suoi file"
+                            onClick={async () => {
+                              if (!confirm(`Eliminare il progetto "${p.name}" e tutti i suoi ${projectFiles.length} file?`)) return
+                              try {
+                                const paths = projectFiles.filter(f => f.storagePath).map(f => f.storagePath)
+                                if (paths.length) await supabase.storage.from(STORAGE_BUCKET).remove(paths)
+                                for (const f of projectFiles) await deleteDoc(doc(db, 'files', f.id))
+                                await deleteDoc(doc(db, 'projects', p.id))
+                                setProjects(prev => prev.filter(x => x.id !== p.id))
+                                setFiles(prev => prev.filter(f => f.projectId !== p.id))
+                                notify(`Progetto "${p.name}" eliminato.`)
+                              } catch (err) {
+                                notify('Errore: ' + err.message, 'err')
+                              }
+                            }}>✕</button>
+                        </div>
                       </div>
                     )}
                     {!isEditing && projectFiles.length > 0 && (
