@@ -11,17 +11,19 @@ const CATEGORIES = ['Codice', 'Documenti', 'Immagini', 'Altro']
 const LANGUAGES = ['js','jsx','ts','tsx','html','css','php','py','java','c','cpp','json','sql','sh','md','txt','vue','xml']
 
 /**
- * Loads all files uploaded by the current user that are not yet in any project.
+ * Loads all files uploaded by the current user, excluding those
+ * already assigned to the target project.
  * @param {string} userId - The current user's UID.
- * @returns {Promise<Array>} Array of file objects.
+ * @param {string} excludeProjectId - Files already in this project are excluded.
+ * @returns {Promise<Array>} Array of file objects available for assignment.
  */
-async function fetchStandaloneUserFiles(userId) {
+async function fetchAssignableUserFiles(userId, excludeProjectId) {
   const snap = await getDocs(
     query(collection(db, 'files'), where('uploadedBy', '==', userId), orderBy('createdAt', 'desc'))
   )
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
-    .filter(f => !f.projectId)
+    .filter(f => f.projectId !== excludeProjectId)
 }
 
 /**
@@ -80,13 +82,13 @@ export default function UploadModal({ onClose, onSuccess, defaultProjectId = nul
 
   const fileRef = useRef()
 
-  // Load existing standalone files when tab is opened (only when adding to a project)
+  // Load all user files (excluding those already in this project) when tab is opened
   useEffect(() => {
     if (mode === 'existing' && defaultProjectId) {
       setLoadingExisting(true)
-      fetchStandaloneUserFiles(user.uid)
+      fetchAssignableUserFiles(user.uid, defaultProjectId)
         .then(files => { setStandaloneFiles(files); setLoadingExisting(false) })
-        .catch(() => setLoadingExisting(false))
+        .catch(err => { console.error('Failed to load user files:', err.message); setLoadingExisting(false) })
     }
   }, [mode, defaultProjectId, user.uid])
 
@@ -332,20 +334,25 @@ export default function UploadModal({ onClose, onSuccess, defaultProjectId = nul
             {loadingExisting ? (
               <p style={{ fontSize: '13px', color: '#6b6b75' }}>Caricamento...</p>
             ) : standaloneFiles.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#6b6b75' }}>Nessun file disponibile (tutti già in un progetto).</p>
+              <p style={{ fontSize: '13px', color: '#6b6b75' }}>Nessun file disponibile.</p>
             ) : (
               <div style={{ ...s.fileList, maxHeight: '220px', overflowY: 'auto' }}>
                 {standaloneFiles.map(f => {
                   const selected = selectedExistingIds.has(f.id)
                   return (
-                    <div key={f.id} style={{ ...s.fileRow, cursor: 'pointer', border: selected ? '1px solid #7c6dfa' : '1px solid transparent', borderRadius: '8px' }}
+                    <div key={f.id}
+                      style={{ ...s.fileRow, cursor: 'pointer', border: selected ? '1px solid #7c6dfa' : '1px solid transparent', borderRadius: '8px' }}
                       onClick={() => toggleExistingFile(f.id)}>
                       <span style={{ fontSize: '14px', color: selected ? '#a99bfc' : '#4a4a55', minWidth: '18px' }}>
                         {selected ? '☑' : '☐'}
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: '13px', color: '#e8e6e0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</p>
-                        <p style={{ fontSize: '11px', color: '#4a4a55' }}>{fmt(f.size)} · {f.category}</p>
+                        <p style={{ fontSize: '11px', color: '#4a4a55' }}>
+                          {fmt(f.size)} · {f.category}
+                          {/* Show which project this file currently belongs to */}
+                          {f.projectId && <span style={{ color: '#7c6dfa', marginLeft: '6px' }}>· già in un progetto</span>}
+                        </p>
                       </div>
                     </div>
                   )
