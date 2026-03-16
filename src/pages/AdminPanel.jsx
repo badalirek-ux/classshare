@@ -39,6 +39,11 @@ export default function AdminPanel({ onClose }) {
   const [assigningFile, setAssigningFile] = useState(null)
   const [selectedProjectId, setSelectedProjectId] = useState('')
 
+  // State for the "rename project" workflow
+  const [editingProject, setEditingProject] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+
   const notify = (text, type = 'ok') => {
     setMsg(text); setMsgType(type)
     setTimeout(() => setMsg(''), 4000)
@@ -139,6 +144,27 @@ export default function AdminPanel({ onClose }) {
       await updateDoc(doc(db, 'files', file.id), { projectId: null })
       setFiles(prev => prev.map(f => f.id === file.id ? { ...f, projectId: null } : f))
       notify('File rimosso dal progetto.')
+    } catch (err) {
+      notify('Errore: ' + err.message, 'err')
+    }
+  }
+
+  /**
+   * Renames a project by updating its name and optional description in Firestore.
+   * @param {string} projectId - The Firestore document ID of the project.
+   * @param {string} newName - The new project name.
+   * @param {string} newDesc - The new project description.
+   */
+  const renameProject = async (projectId, newName, newDesc) => {
+    if (!newName.trim()) { notify('Il nome non può essere vuoto.', 'err'); return }
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        name: newName.trim(),
+        description: newDesc.trim()
+      })
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name: newName.trim(), description: newDesc.trim() } : p))
+      setEditingProject(null)
+      notify('Progetto rinominato.')
     } catch (err) {
       notify('Errore: ' + err.message, 'err')
     }
@@ -250,22 +276,50 @@ export default function AdminPanel({ onClose }) {
               ? <p style={{ fontSize: '13px', color: '#6b6b75' }}>Nessun progetto.</p>
               : projects.map(p => {
                 const projectFiles = files.filter(f => f.projectId === p.id)
+                const isEditing = editingProject === p.id
                 return (
                   <div key={p.id} style={{ ...s.row, flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <p style={s.rowName}>📁 {p.name}</p>
-                        <p style={s.rowMeta}>{p.creatorName} · {projectFiles.length} file</p>
+                    {isEditing ? (
+                      // Inline rename form
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <input style={s.input} value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          placeholder="Nome progetto" autoFocus />
+                        <input style={s.input} value={editDesc}
+                          onChange={e => setEditDesc(e.target.value)}
+                          placeholder="Descrizione (opzionale)" />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button style={s.btnSecondary} onClick={() => setEditingProject(null)}>Annulla</button>
+                          <button style={s.btn} onClick={() => renameProject(p.id, editName, editDesc)}>Salva</button>
+                        </div>
                       </div>
-                    </div>
-                    {projectFiles.length > 0 && (
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <p style={s.rowName}>📁 {p.name}</p>
+                          <p style={s.rowMeta}>{p.creatorName} · {projectFiles.length} file</p>
+                        </div>
+                        <button style={s.btnSmallOutline} onClick={() => {
+                          setEditingProject(p.id)
+                          setEditName(p.name)
+                          setEditDesc(p.description || '')
+                        }}>✎ Rinomina</button>
+                      </div>
+                    )}
+                    {!isEditing && projectFiles.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '12px', borderLeft: '2px solid #2a2a2f' }}>
                         {projectFiles.map(f => (
                           <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <p style={{ fontSize: '12px', color: '#9b9ba8' }}>{f.name} <span style={{ color: '#4a4a55' }}>· {f.uploaderName}</span></p>
-                            <button style={{ ...s.btnSmallOutline, fontSize: '11px', padding: '3px 8px' }} onClick={() => removeFromProject(f)}>
-                              Rimuovi
-                            </button>
+                            <p style={{ fontSize: '12px', color: '#9b9ba8' }}>
+                              {f.name} <span style={{ color: '#4a4a55' }}>· {f.uploaderName}</span>
+                            </p>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button style={{ ...s.btnSmallOutline, fontSize: '11px', padding: '3px 8px' }}
+                                onClick={() => removeFromProject(f)}>
+                                Rimuovi
+                              </button>
+                              <button style={s.btnSmallDanger} onClick={() => deleteFile(f)} title="Elimina file">✕</button>
+                            </div>
                           </div>
                         ))}
                       </div>
