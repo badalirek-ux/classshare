@@ -7,27 +7,8 @@ import {
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
-const ALLOWED_EMAILS = [
-  'abonafede@stevejobs.academy',
-  'cbonafede@stevejobs.academy',
-  'nbadali@stevejobs.academy',
-  'abulone@stevejobs.academy',
-  'mcapitti@stevejobs.academy',
-  'ecimo@stevejobs.academy',
-  'sdifranco@stevejobs.academy',
-  'afiumefreddo@stevejobs.academy',
-  'mintravaia@stevejobs.academy',
-  'dlefosse@stevejobs.academy',
-  'dloiacono@stevejobs.academy',
-  'mmanfre@stevejobs.academy',
-  'mmercadante@stevejobs.academy',
-  'fmicalizzi@stevejobs.academy',
-  'gscrivano@stevejobs.academy',
-  'aserra@stevejobs.academy',
-  'csparacio@stevejobs.academy',
-  'mtiscione@stevejobs.academy',
-  'ttitone@stevejobs.academy',
-]
+const envEmails = import.meta.env.VITE_ALLOWED_EMAILS || ''
+const ALLOWED_EMAILS = envEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
 
 export default function AuthPage() {
   const [mode, setMode] = useState('login')

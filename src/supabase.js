@@ -11,8 +11,8 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL = 'https://aoiukbfupwkbkzvxppac.supabase.co'       // ← il tuo Project URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvaXVrYmZ1cHdrYmt6dnhwcGFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzEyMDEsImV4cCI6MjA4OTAwNzIwMX0.d46YyZ9aWip213jAPi8ksHr_vmFuwjsGsO4pfEzPCWA'  // ← la tua anon key
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 

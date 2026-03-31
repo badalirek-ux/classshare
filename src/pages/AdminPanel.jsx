@@ -7,8 +7,7 @@ import { db, auth } from '../firebase'
 import { supabase, STORAGE_BUCKET } from '../supabase'
 import { sendPasswordResetEmail } from 'firebase/auth'
 
-const ADMIN_PASSWORD = 'classAdmin@SteveJobs2025'
-
+import { useEffect } from 'react'
 /** @param {number} b - bytes */
 function fmtSize(b) {
   if (!b) return '0 B'
@@ -24,9 +23,6 @@ function fmtDate(ts) {
 }
 
 export default function AdminPanel({ onClose }) {
-  const [authed, setAuthed] = useState(false)
-  const [pwd, setPwd] = useState('')
-  const [pwdError, setPwdError] = useState('')
   const [tab, setTab] = useState('files')
   const [files, setFiles] = useState([])
   const [users, setUsers] = useState([])
@@ -49,20 +45,28 @@ export default function AdminPanel({ onClose }) {
     setTimeout(() => setMsg(''), 4000)
   }
 
-  const login = async () => {
-    if (pwd !== ADMIN_PASSWORD) { setPwdError('Password errata.'); return }
-    setAuthed(true)
-    setLoading(true)
-    const [fSnap, uSnap, pSnap] = await Promise.all([
-      getDocs(query(collection(db, 'files'), orderBy('createdAt', 'desc'))),
-      getDocs(collection(db, 'profiles')),
-      getDocs(query(collection(db, 'projects'), orderBy('createdAt', 'desc')))
-    ])
-    setFiles(fSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-    setUsers(uSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-    setProjects(pSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-    setLoading(false)
-  }
+  useEffect(() => {
+    let mounted = true
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const [fSnap, uSnap, pSnap] = await Promise.all([
+          getDocs(query(collection(db, 'files'), orderBy('createdAt', 'desc'))),
+          getDocs(collection(db, 'profiles')),
+          getDocs(query(collection(db, 'projects'), orderBy('createdAt', 'desc')))
+        ])
+        if (!mounted) return
+        setFiles(fSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setUsers(uSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setProjects(pSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      } catch (err) {
+        if (mounted) notify('Errore nel caricamento dati: ' + err.message, 'err')
+      }
+      if (mounted) setLoading(false)
+    }
+    loadData()
+    return () => { mounted = false }
+  }, [])
 
   const deleteFile = async (file) => {
     if (!confirm(`Eliminare "${file.name}"?`)) return
@@ -172,22 +176,6 @@ export default function AdminPanel({ onClose }) {
 
   const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0)
 
-  if (!authed) return (
-    <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={s.loginBox}>
-        <div style={s.header}>
-          <p style={s.title}>Pannello Admin</p>
-          <button style={s.close} onClick={onClose}>✕</button>
-        </div>
-        <p style={{ fontSize: '13px', color: '#6b6b75', marginBottom: '16px' }}>Accesso riservato.</p>
-        <input style={s.input} type="password" placeholder="Password admin"
-          value={pwd} onChange={e => setPwd(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && login()} autoFocus />
-        {pwdError && <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>{pwdError}</p>}
-        <button style={{ ...s.btn, marginTop: '14px', width: '100%' }} onClick={login}>Accedi</button>
-      </div>
-    </div>
-  )
 
   return (
     <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -375,7 +363,6 @@ export default function AdminPanel({ onClose }) {
 
 const s = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' },
-  loginBox: { background: '#17171a', border: '1px solid #2a2a2f', borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column' },
   panel: { background: '#17171a', border: '1px solid #2a2a2f', borderRadius: '16px', padding: '1.75rem', width: '100%', maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: '16px', fontWeight: '600', color: '#e8e6e0' },

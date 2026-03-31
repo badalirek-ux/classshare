@@ -19,7 +19,7 @@ ClassShare è una web app React per la condivisione di file tra studenti di un c
 
 ## Note specifiche per questo progetto
 
-- Le credenziali Firebase e Supabase non vanno mai committate — sono già nel file locale `src/firebase.js` e `src/supabase.js` che ogni sviluppatore configura in autonomia
-- La whitelist delle email autorizzate si trova in `src/pages/AuthPage.jsx` nella costante `ALLOWED_EMAILS`
-- La password admin del pannello di controllo si trova in `src/pages/AdminPanel.jsx` nella costante `ADMIN_PASSWORD`
-- Prima di ogni modifica ai componenti principali (`Dashboard.jsx`, `UploadModal.jsx`) verifica che la build locale funzioni con `npm run build`
+- Le configurazioni del progetto per Firebase e Supabase risiedono nel file `.env.local` (che non viene mai caricato su repository pubblici).
+- **Controllo Accessi:** La lista delle email ammesse (`VITE_ALLOWED_EMAILS`) si trova tra le variabili d'ambiente.
+- **Pannello Admin:** L'amministratore del progetto accede automaticamente al pannello di gestione. Per assegnare il ruolo di admin a uno sviluppatore o professore, usa: `node scripts/set-admin.mjs <tuamail> <service-account.json>`.
+- Prima di ogni modifica ai componenti principali (`Dashboard.jsx`, `UploadModal.jsx`) verifica che la build locale funzioni con `npm run build`.

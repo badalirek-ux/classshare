@@ -273,7 +273,7 @@ function ProfileModal({ user, profile, files, onClose }) {
 }
 
 export default function Dashboard() {
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const [files, setFiles] = useState([])
   const [projects, setProjects] = useState([])
   const [expandedProject, setExpandedProject] = useState(null)
@@ -379,7 +379,7 @@ export default function Dashboard() {
               </button>
             ))}
           </nav>
-          <button style={s.adminBtn} onClick={() => setShowAdmin(true)}>⚙️ Admin</button>
+          {isAdmin && <button style={s.adminBtn} onClick={() => setShowAdmin(true)}>⚙️ Admin</button>}
           <div style={s.profileBar} onClick={() => setShowProfile(true)}>
             <div style={{...s.avatar, background: avatarColor(profile?.name)}}>
               {initials(profile?.name || user?.email)}

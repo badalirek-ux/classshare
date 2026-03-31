@@ -10,15 +10,23 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const [isAdmin, setIsAdmin] = useState(false)
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser)
+        
+        // Controlla il Custom Claim `admin`
+        const tokenResult = await firebaseUser.getIdTokenResult()
+        setIsAdmin(!!tokenResult.claims.admin)
+
         const snap = await getDoc(doc(db, 'profiles', firebaseUser.uid))
         if (snap.exists()) setProfile(snap.data())
       } else {
         setUser(null)
         setProfile(null)
+        setIsAdmin(false)
       }
       setLoading(false)
     })
@@ -26,7 +34,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, profile, setProfile, loading }}>
+    <AuthContext.Provider value={{ user, profile, setProfile, isAdmin, loading }}>
       {children}
     </AuthContext.Provider>
   )
